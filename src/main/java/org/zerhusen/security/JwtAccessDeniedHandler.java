@@ -1,21 +1,22 @@
 package org.zerhusen.security;
 
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.stereotype.Component;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.core.Response;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
+/**
+ * Returns a 403 error code (Forbidden) to the client.
+ */
+@ApplicationScoped
+public class JwtAccessDeniedHandler {
 
-@Component
-public class JwtAccessDeniedHandler implements AccessDeniedHandler {
+   public static final String DEFAULT_MESSAGE = "Access is denied";
 
-   @Override
-   public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) throws IOException {
-      // This is invoked when user tries to access a secured REST resource without the necessary authorization
-      // We should just send a 403 Forbidden response because there is no 'error' page to redirect to
-      // Here you can place any message you want
-      response.sendError(HttpServletResponse.SC_FORBIDDEN, accessDeniedException.getMessage());
+   public Response handle(String path, String message) {
+      ErrorResponse body = new ErrorResponse(
+         Response.Status.FORBIDDEN.getStatusCode(), "Forbidden", message, path);
+      return Response.status(Response.Status.FORBIDDEN)
+         .entity(body)
+         .type(MediaTypes.APPLICATION_JSON_UTF8)
+         .build();
    }
 }

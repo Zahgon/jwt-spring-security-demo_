@@ -1,10 +1,12 @@
 package org.zerhusen.security.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
+import jakarta.enterprise.context.ApplicationScoped;
 import org.zerhusen.security.model.Authority;
 
 /**
- * Spring Data JPA repository for the {@link Authority} entity.
+ * Panache repository for the {@link Authority} entity.
  */
-public interface AuthorityRepository extends JpaRepository<Authority, String> {
+@ApplicationScoped
+public class AuthorityRepository implements PanacheRepositoryBase<Authority, String> {
 }

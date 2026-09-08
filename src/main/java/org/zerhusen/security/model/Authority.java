@@ -1,16 +1,23 @@
 package org.zerhusen.security.model;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
+import java.io.Serializable;
 import java.util.Objects;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "AUTHORITY")
-public class Authority {
+public class Authority implements Serializable {
 
+   private static final long serialVersionUID = 1L;
+
+   @NotNull
    @Id
    @Column(name = "NAME", length = 50)
-   @NotNull
    private String name;
 
    public String getName() {
@@ -23,10 +30,14 @@ public class Authority {
 
    @Override
    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o) {
+         return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+         return false;
+      }
       Authority authority = (Authority) o;
-      return name == authority.name;
+      return Objects.equals(name, authority.name);
    }
 
    @Override

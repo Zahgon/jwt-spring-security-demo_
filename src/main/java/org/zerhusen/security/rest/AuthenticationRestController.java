@@ -1,55 +1,52 @@
 package org.zerhusen.security.rest;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.zerhusen.security.rest.dto.LoginDto;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.validation.Valid;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.zerhusen.security.Authentication;
+import org.zerhusen.security.AuthenticationManager;
+import org.zerhusen.security.SecurityContextHolder;
 import org.zerhusen.security.jwt.JWTFilter;
 import org.zerhusen.security.jwt.TokenProvider;
+import org.zerhusen.security.rest.dto.LoginDto;
 
-import javax.validation.Valid;
-
-/**
- * Controller to authenticate users.
- */
-@RestController
-@RequestMapping("/api")
+@Path("/api")
+@ApplicationScoped
 public class AuthenticationRestController {
 
    private final TokenProvider tokenProvider;
 
-   private final AuthenticationManagerBuilder authenticationManagerBuilder;
+   private final AuthenticationManager authenticationManager;
 
-   public AuthenticationRestController(TokenProvider tokenProvider, AuthenticationManagerBuilder authenticationManagerBuilder) {
+   @Inject
+   public AuthenticationRestController(TokenProvider tokenProvider,
+                                       AuthenticationManager authenticationManager) {
       this.tokenProvider = tokenProvider;
-      this.authenticationManagerBuilder = authenticationManagerBuilder;
+      this.authenticationManager = authenticationManager;
    }
 
-   @PostMapping("/authenticate")
-   public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginDto loginDto) {
+   @POST
+   @Path("/authenticate")
+   @Consumes(MediaType.APPLICATION_JSON)
+   @Produces(MediaType.APPLICATION_JSON)
+   public Response authorize(@Valid LoginDto loginDto) {
+      Authentication authentication =
+         authenticationManager.authenticate(loginDto.getUsername(), loginDto.getPassword());
+      SecurityContextHolder.setAuthentication(authentication);
 
-      UsernamePasswordAuthenticationToken authenticationToken =
-         new UsernamePasswordAuthenticationToken(loginDto.getUsername(), loginDto.getPassword());
-
-      Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-      SecurityContextHolder.getContext().setAuthentication(authentication);
-
-      boolean rememberMe = (loginDto.isRememberMe() == null) ? false : loginDto.isRememberMe();
+      boolean rememberMe = loginDto.isRememberMe() != null && loginDto.isRememberMe();
       String jwt = tokenProvider.createToken(authentication, rememberMe);
 
-      HttpHeaders httpHeaders = new HttpHeaders();
-      httpHeaders.add(JWTFilter.AUTHORIZATION_HEADER, "Bearer " + jwt);
-
-      return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+      return Response.ok(new JWTToken(jwt))
+         .header(JWTFilter.AUTHORIZATION_HEADER, "Bearer " + jwt)
+         .build();
    }
 
    /**

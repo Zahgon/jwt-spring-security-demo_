@@ -1,24 +1,31 @@
 package org.zerhusen.security.rest;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.zerhusen.security.model.User;
 import org.zerhusen.security.service.UserService;
 
-@RestController
-@RequestMapping("/api")
+@Path("/api")
+@ApplicationScoped
 public class UserRestController {
 
    private final UserService userService;
 
+   @Inject
    public UserRestController(UserService userService) {
       this.userService = userService;
    }
 
-   @GetMapping("/user")
-   public ResponseEntity<User> getActualUser() {
-      return ResponseEntity.ok(userService.getUserWithAuthorities().get());
+   @GET
+   @Path("/user")
+   @Produces(MediaType.APPLICATION_JSON)
+   public Response getActualUser() {
+      User user = userService.getUserWithAuthorities().orElseThrow();
+      return Response.ok(user).build();
    }
 }

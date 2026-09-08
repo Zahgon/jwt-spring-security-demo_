@@ -1,47 +1,47 @@
 package org.zerhusen.rest;
 
-import org.junit.Test;
-import org.springframework.http.MediaType;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import org.junit.jupiter.api.Test;
 import org.zerhusen.util.AbstractRestControllerTest;
+import org.zerhusen.util.LogInUtils;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.zerhusen.util.LogInUtils.getTokenForLogin;
+import static org.hamcrest.Matchers.equalTo;
 
-public class PersonRestControllerTest extends AbstractRestControllerTest {
+@QuarkusTest
+class PersonRestControllerTest extends AbstractRestControllerTest {
 
    @Test
-   public void getPersonForUser() throws Exception {
-      final String token = getTokenForLogin("user", "password", getMockMvc());
+   void getPersonForUser() {
+      String token = LogInUtils.getTokenForLogin("user", "password");
 
       assertSuccessfulPersonRequest(token);
    }
 
    @Test
-   public void getPersonForAdmin() throws Exception {
-      final String token = getTokenForLogin("admin", "admin", getMockMvc());
+   void getPersonForAdmin() {
+      String token = LogInUtils.getTokenForLogin("admin", "admin");
 
       assertSuccessfulPersonRequest(token);
    }
 
    @Test
-   public void getPersonForAnonymous() throws Exception {
-      getMockMvc().perform(get("/api/person")
-         .contentType(MediaType.APPLICATION_JSON))
-         .andExpect(status().isUnauthorized());
+   void getPersonForAnonymous() {
+      RestAssured.given()
+         .when()
+         .get("/api/person")
+         .then()
+         .statusCode(401);
    }
 
-   private void assertSuccessfulPersonRequest(String token) throws Exception {
-      getMockMvc().perform(get("/api/person")
-         .contentType(MediaType.APPLICATION_JSON)
-         .header("Authorization", "Bearer " + token))
-         .andExpect(status().isOk())
-         .andExpect(content().json(
-            "{\n" +
-               "  \"name\" : \"John Doe\",\n" +
-               "  \"email\" : \"john.doe@test.org\"\n" +
-               "}"
-         ));
+   private void assertSuccessfulPersonRequest(String token) {
+      RestAssured.given()
+         .header("Authorization", "Bearer " + token)
+         .when()
+         .get("/api/person")
+         .then()
+         .statusCode(200)
+         .body("name", equalTo("John Doe"))
+         .body("email", equalTo("john.doe@test.org"));
    }
 }

@@ -1,42 +1,49 @@
 package org.zerhusen.util;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-
+/**
+ * Obtains a real access token by driving the public authentication endpoint, exactly as a
+ * client would. Ported from the {@code MockMvc} based helper of the Spring project.
+ */
 public final class LogInUtils {
 
-   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
    private LogInUtils() {
+      // utility class
    }
 
-   public static String getTokenForLogin(String username, String password, MockMvc mockMvc) throws Exception {
-      String content = mockMvc.perform(post("/api/authenticate")
-         .contentType(MediaType.APPLICATION_JSON)
-         .content("{\"password\": \"" + password + "\", \"username\": \"" + username + "\"}"))
-         .andReturn()
-         .getResponse()
-         .getContentAsString();
-      AuthenticationResponse authResponse = OBJECT_MAPPER.readValue(content, AuthenticationResponse.class);
+   public static String getTokenForLogin(String username, String password) {
+      AuthenticationResponse response = RestAssured.given()
+         .contentType(ContentType.JSON)
+         .body("{\"password\": \"" + password + "\", \"username\": \"" + username + "\"}")
+         .when()
+         .post("/api/authenticate")
+         .then()
+         .extract()
+         .as(AuthenticationResponse.class);
 
-      return authResponse.getIdToken();
+      return response.getIdToken();
    }
 
+   public static String bearer(String username, String password) {
+      return "Bearer " + getTokenForLogin(username, password);
+   }
+
+   @JsonIgnoreProperties(ignoreUnknown = true)
    private static class AuthenticationResponse {
 
       @JsonAlias("id_token")
       private String idToken;
 
-      public void setIdToken(String idToken) {
-         this.idToken = idToken;
-      }
-
       public String getIdToken() {
          return idToken;
+      }
+
+      public void setIdToken(String idToken) {
+         this.idToken = idToken;
       }
    }
 }

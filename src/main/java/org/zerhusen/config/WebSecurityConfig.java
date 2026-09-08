@@ -1,112 +1,103 @@
 package org.zerhusen.config;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.builders.WebSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.filter.CorsFilter;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.HttpMethod;
+import jakarta.ws.rs.core.Response;
+import org.zerhusen.security.Authentication;
 import org.zerhusen.security.JwtAccessDeniedHandler;
 import org.zerhusen.security.JwtAuthenticationEntryPoint;
-import org.zerhusen.security.jwt.JWTConfigurer;
-import org.zerhusen.security.jwt.TokenProvider;
+import org.zerhusen.security.SecurityContextHolder;
 
-@EnableWebSecurity
-@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
-public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+/**
+ * The access rules of the application.
+ *
+ * <p>This is the declarative security configuration the servlet filter chain used
+ * to carry: a list of paths that bypass security altogether, one path that is
+ * open to anonymous callers, two paths that each demand a single authority, and
+ * a catch-all that requires an authenticated caller.</p>
+ */
+@ApplicationScoped
+public class WebSecurityConfig {
 
-   private final TokenProvider tokenProvider;
-   private final CorsFilter corsFilter;
+   public static final String ROLE_USER = "ROLE_USER";
+
+   public static final String ROLE_ADMIN = "ROLE_ADMIN";
+
+   private static final String AUTHENTICATE_PATH = "/api/authenticate";
+
+   private static final String[] IGNORED_EXACT = { "/", "/favicon.ico" };
+
+   private static final String[] IGNORED_SUFFIXES = { ".html", ".css", ".js" };
+
+   private static final String[] IGNORED_PREFIXES = { "/h2-console/" };
+
+   private final Map<String, String> protectedPaths = new LinkedHashMap<>();
+
    private final JwtAuthenticationEntryPoint authenticationErrorHandler;
+
    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
-   public WebSecurityConfig(
-      TokenProvider tokenProvider,
-      CorsFilter corsFilter,
-      JwtAuthenticationEntryPoint authenticationErrorHandler,
-      JwtAccessDeniedHandler jwtAccessDeniedHandler
-   ) {
-      this.tokenProvider = tokenProvider;
-      this.corsFilter = corsFilter;
+   @Inject
+   public WebSecurityConfig(JwtAuthenticationEntryPoint authenticationErrorHandler,
+                            JwtAccessDeniedHandler jwtAccessDeniedHandler) {
       this.authenticationErrorHandler = authenticationErrorHandler;
       this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
+      this.protectedPaths.put("/api/person", ROLE_USER);
+      this.protectedPaths.put("/api/hiddenmessage", ROLE_ADMIN);
    }
 
-   // Configure BCrypt password encoder =====================================================================
-
-   @Bean
-   public PasswordEncoder passwordEncoder() {
-      return new BCryptPasswordEncoder();
+   /**
+    * Paths that never reach the security layer: pre-flight requests and the
+    * static assets that make up the single page front end.
+    */
+   public boolean isIgnored(String method, String path) {
+      if (HttpMethod.OPTIONS.equals(method)) {
+         return true;
+      }
+      for (String exact : IGNORED_EXACT) {
+         if (exact.equals(path)) {
+            return true;
+         }
+      }
+      for (String suffix : IGNORED_SUFFIXES) {
+         if (path.endsWith(suffix)) {
+            return true;
+         }
+      }
+      for (String prefix : IGNORED_PREFIXES) {
+         if (path.startsWith(prefix)) {
+            return true;
+         }
+      }
+      return false;
    }
 
-   // Configure paths and requests that should be ignored by Spring Security ================================
+   /**
+    * Applies the access rules to the current request.
+    *
+    * @return {@code null} when the request may proceed, otherwise the response
+    *         that rejects it
+    */
+   public Response authorize(String path) {
+      if (AUTHENTICATE_PATH.equals(path)) {
+         return null;
+      }
 
-   @Override
-   public void configure(WebSecurity web) {
-      web.ignoring()
-         .antMatchers(HttpMethod.OPTIONS, "/**")
+      Authentication authentication = SecurityContextHolder.getAuthentication();
+      if (authentication == null) {
+         return authenticationErrorHandler.commence(
+            path, JwtAuthenticationEntryPoint.DEFAULT_MESSAGE);
+      }
 
-         // allow anonymous resource requests
-         .antMatchers(
-            "/",
-            "/*.html",
-            "/favicon.ico",
-            "/**/*.html",
-            "/**/*.css",
-            "/**/*.js",
-            "/h2-console/**"
-         );
-   }
+      String requiredAuthority = protectedPaths.get(path);
+      if (requiredAuthority != null && !authentication.hasAuthority(requiredAuthority)) {
+         return jwtAccessDeniedHandler.handle(path, JwtAccessDeniedHandler.DEFAULT_MESSAGE);
+      }
 
-   // Configure security settings ===========================================================================
-
-   @Override
-   protected void configure(HttpSecurity httpSecurity) throws Exception {
-      httpSecurity
-         // we don't need CSRF because our token is invulnerable
-         .csrf().disable()
-
-         .addFilterBefore(corsFilter, UsernamePasswordAuthenticationFilter.class)
-
-         .exceptionHandling()
-         .authenticationEntryPoint(authenticationErrorHandler)
-         .accessDeniedHandler(jwtAccessDeniedHandler)
-
-         // enable h2-console
-         .and()
-         .headers()
-         .frameOptions()
-         .sameOrigin()
-
-         // create no session
-         .and()
-         .sessionManagement()
-         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-
-         .and()
-         .authorizeRequests()
-         .antMatchers("/api/authenticate").permitAll()
-         // .antMatchers("/api/register").permitAll()
-         // .antMatchers("/api/activate").permitAll()
-         // .antMatchers("/api/account/reset-password/init").permitAll()
-         // .antMatchers("/api/account/reset-password/finish").permitAll()
-
-         .antMatchers("/api/person").hasAuthority("ROLE_USER")
-         .antMatchers("/api/hiddenmessage").hasAuthority("ROLE_ADMIN")
-
-         .anyRequest().authenticated()
-
-         .and()
-         .apply(securityConfigurerAdapter());
-   }
-
-   private JWTConfigurer securityConfigurerAdapter() {
-      return new JWTConfigurer(tokenProvider);
+      return null;
    }
 }

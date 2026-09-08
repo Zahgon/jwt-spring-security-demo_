@@ -1,66 +1,69 @@
 package org.zerhusen.security.jwt;
 
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.stereotype.Component;
-
 import java.security.Key;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-@Component
-public class TokenProvider implements InitializingBean {
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SecurityException;
+import jakarta.annotation.PostConstruct;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+import org.zerhusen.security.Authentication;
+import org.zerhusen.security.UserDetails;
 
-   private final Logger log = LoggerFactory.getLogger(TokenProvider.class);
+@ApplicationScoped
+public class TokenProvider {
+
+   private static final Logger LOG = Logger.getLogger(TokenProvider.class);
 
    private static final String AUTHORITIES_KEY = "auth";
 
    private final String base64Secret;
+
    private final long tokenValidityInMilliseconds;
+
    private final long tokenValidityInMillisecondsForRememberMe;
 
    private Key key;
 
-
+   @Inject
    public TokenProvider(
-      @Value("${jwt.base64-secret}") String base64Secret,
-      @Value("${jwt.token-validity-in-seconds}") long tokenValidityInSeconds,
-      @Value("${jwt.token-validity-in-seconds-for-remember-me}") long tokenValidityInSecondsForRememberMe) {
+      @ConfigProperty(name = "jwt.base64-secret") String base64Secret,
+      @ConfigProperty(name = "jwt.token-validity-in-seconds") long tokenValidityInSeconds,
+      @ConfigProperty(name = "jwt.token-validity-in-seconds-for-remember-me") long tokenValidityInSecondsForRememberMe) {
       this.base64Secret = base64Secret;
-      this.tokenValidityInMilliseconds = tokenValidityInSeconds * 1000;
-      this.tokenValidityInMillisecondsForRememberMe = tokenValidityInSecondsForRememberMe * 1000;
+      this.tokenValidityInMilliseconds = 1000 * tokenValidityInSeconds;
+      this.tokenValidityInMillisecondsForRememberMe = 1000 * tokenValidityInSecondsForRememberMe;
    }
 
-   @Override
-   public void afterPropertiesSet() {
+   @PostConstruct
+   public void init() {
       byte[] keyBytes = Decoders.BASE64.decode(base64Secret);
       this.key = Keys.hmacShaKeyFor(keyBytes);
    }
 
    public String createToken(Authentication authentication, boolean rememberMe) {
       String authorities = authentication.getAuthorities().stream()
-         .map(GrantedAuthority::getAuthority)
          .collect(Collectors.joining(","));
 
-      long now = (new Date()).getTime();
-      Date validity;
-      if (rememberMe) {
-         validity = new Date(now + this.tokenValidityInMillisecondsForRememberMe);
-      } else {
-         validity = new Date(now + this.tokenValidityInMilliseconds);
-      }
+      long now = new Date().getTime();
+      Date validity = rememberMe
+         ? new Date(now + this.tokenValidityInMillisecondsForRememberMe)
+         : new Date(now + this.tokenValidityInMilliseconds);
 
       return Jwts.builder()
          .setSubject(authentication.getName())
@@ -71,37 +74,37 @@ public class TokenProvider implements InitializingBean {
    }
 
    public Authentication getAuthentication(String token) {
-      Claims claims = Jwts.parser()
+      Claims claims = Jwts.parserBuilder()
          .setSigningKey(key)
+         .build()
          .parseClaimsJws(token)
          .getBody();
 
-      Collection<? extends GrantedAuthority> authorities =
-         Arrays.stream(claims.get(AUTHORITIES_KEY).toString().split(","))
-            .map(SimpleGrantedAuthority::new)
-            .collect(Collectors.toList());
+      Set<String> authorities = Arrays.stream(String.valueOf(claims.get(AUTHORITIES_KEY)).split(","))
+         .filter(authority -> !authority.isEmpty())
+         .collect(Collectors.toCollection(LinkedHashSet::new));
 
-      User principal = new User(claims.getSubject(), "", authorities);
+      UserDetails principal = new UserDetails(claims.getSubject(), "", authorities);
 
-      return new UsernamePasswordAuthenticationToken(principal, token, authorities);
+      return new Authentication(principal, token, authorities);
    }
 
    public boolean validateToken(String authToken) {
       try {
-         Jwts.parser().setSigningKey(key).parseClaimsJws(authToken);
+         Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(authToken);
          return true;
-      } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
-         log.info("Invalid JWT signature.");
-         log.trace("Invalid JWT signature trace: {}", e);
+      } catch (SecurityException | MalformedJwtException e) {
+         LOG.info("Invalid JWT signature.");
+         LOG.trace("Invalid JWT signature trace: " + e);
       } catch (ExpiredJwtException e) {
-         log.info("Expired JWT token.");
-         log.trace("Expired JWT token trace: {}", e);
+         LOG.info("Expired JWT token.");
+         LOG.trace("Expired JWT token trace: " + e);
       } catch (UnsupportedJwtException e) {
-         log.info("Unsupported JWT token.");
-         log.trace("Unsupported JWT token trace: {}", e);
-      } catch (IllegalArgumentException e) {
-         log.info("JWT token compact of handler are invalid.");
-         log.trace("JWT token compact of handler are invalid trace: {}", e);
+         LOG.info("Unsupported JWT token.");
+         LOG.trace("Unsupported JWT token trace: " + e);
+      } catch (IllegalArgumentException | JwtException e) {
+         LOG.info("JWT token compact of handler are invalid.");
+         LOG.trace("JWT token compact of handler are invalid trace: " + e);
       }
       return false;
    }

@@ -1,45 +1,47 @@
 package org.zerhusen.rest;
 
-import org.junit.Test;
-import org.springframework.http.MediaType;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import org.junit.jupiter.api.Test;
 import org.zerhusen.util.AbstractRestControllerTest;
+import org.zerhusen.util.LogInUtils;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.zerhusen.util.LogInUtils.getTokenForLogin;
+import static org.hamcrest.Matchers.equalTo;
 
-public class AdminProtectedRestControllerTest extends AbstractRestControllerTest {
+@QuarkusTest
+class AdminProtectedRestControllerTest extends AbstractRestControllerTest {
 
    @Test
-   public void getAdminProtectedGreetingForUser() throws Exception {
-      final String token = getTokenForLogin("user", "password", getMockMvc());
+   void getAdminProtectedGreetingForUser() {
+      String token = LogInUtils.getTokenForLogin("user", "password");
 
-      getMockMvc().perform(get("/api/hiddenmessage")
-         .contentType(MediaType.APPLICATION_JSON)
-         .header("Authorization", "Bearer " + token))
-         .andExpect(status().isForbidden());
+      RestAssured.given()
+         .header("Authorization", "Bearer " + token)
+         .when()
+         .get("/api/hiddenmessage")
+         .then()
+         .statusCode(403);
    }
 
    @Test
-   public void getAdminProtectedGreetingForAdmin() throws Exception {
-      final String token = getTokenForLogin("admin", "admin", getMockMvc());
+   void getAdminProtectedGreetingForAdmin() {
+      String token = LogInUtils.getTokenForLogin("admin", "admin");
 
-      getMockMvc().perform(get("/api/hiddenmessage")
-         .contentType(MediaType.APPLICATION_JSON)
-         .header("Authorization", "Bearer " + token))
-         .andExpect(status().isOk())
-         .andExpect(content().json(
-            "{\n" +
-               "  \"message\" : \"this is a hidden message!\"\n" +
-               "}"
-         ));
+      RestAssured.given()
+         .header("Authorization", "Bearer " + token)
+         .when()
+         .get("/api/hiddenmessage")
+         .then()
+         .statusCode(200)
+         .body("message", equalTo("this is a hidden message!"));
    }
 
    @Test
-   public void getAdminProtectedGreetingForAnonymous() throws Exception {
-      getMockMvc().perform(get("/api/hiddenmessage")
-         .contentType(MediaType.APPLICATION_JSON))
-         .andExpect(status().isUnauthorized());
+   void getAdminProtectedGreetingForAnonymous() {
+      RestAssured.given()
+         .when()
+         .get("/api/hiddenmessage")
+         .then()
+         .statusCode(401);
    }
 }

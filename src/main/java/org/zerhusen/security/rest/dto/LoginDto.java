@@ -1,11 +1,9 @@
 package org.zerhusen.security.rest.dto;
 
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
-/**
- * DTO for storing a user's credentials.
- */
 public class LoginDto {
 
    @NotNull
@@ -16,6 +14,7 @@ public class LoginDto {
    @Size(min = 4, max = 100)
    private String password;
 
+   @JsonProperty("rememberMe")
    private Boolean rememberMe;
 
    public String getUsername() {

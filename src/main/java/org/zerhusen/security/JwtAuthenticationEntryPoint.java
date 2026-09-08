@@ -1,23 +1,30 @@
 package org.zerhusen.security;
 
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.stereotype.Component;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.core.Response;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
+/**
+ * Returns a 401 error code (Unauthorized) to the client.
+ */
+@ApplicationScoped
+public class JwtAuthenticationEntryPoint {
 
-@Component
-public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
+   public static final String DEFAULT_MESSAGE =
+      "Full authentication is required to access this resource";
 
-   @Override
-   public void commence(HttpServletRequest request,
-                        HttpServletResponse response,
-                        AuthenticationException authException) throws IOException {
-      // This is invoked when user tries to access a secured REST resource without supplying any credentials
-      // We should just send a 401 Unauthorized response because there is no 'login page' to redirect to
-      // Here you can place any message you want
-      response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage());
+   /**
+    * Commences an authentication scheme.
+    *
+    * @param path    the path that was rejected
+    * @param message the reason the request was rejected
+    * @return the response that is sent back to the client
+    */
+   public Response commence(String path, String message) {
+      ErrorResponse body = new ErrorResponse(
+         Response.Status.UNAUTHORIZED.getStatusCode(), "Unauthorized", message, path);
+      return Response.status(Response.Status.UNAUTHORIZED)
+         .entity(body)
+         .type(MediaTypes.APPLICATION_JSON_UTF8)
+         .build();
    }
 }

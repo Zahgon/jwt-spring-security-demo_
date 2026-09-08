@@ -1,18 +1,30 @@
 package org.zerhusen.security.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.hibernate.annotations.BatchSize;
-
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import org.hibernate.annotations.BatchSize;
+
 @Entity
 @Table(name = "USER")
-public class User {
+public class User implements Serializable {
+
+   private static final long serialVersionUID = 1L;
 
    @JsonIgnore
    @Id
@@ -21,42 +33,42 @@ public class User {
    @SequenceGenerator(name = "USER_SEQ", sequenceName = "USER_SEQ", allocationSize = 1)
    private Long id;
 
-   @Column(name = "USERNAME", length = 50, unique = true)
    @NotNull
    @Size(min = 4, max = 50)
+   @Column(name = "USERNAME", length = 50, unique = true)
    private String username;
 
    @JsonIgnore
-   @Column(name = "PASSWORD", length = 100)
    @NotNull
    @Size(min = 4, max = 100)
+   @Column(name = "PASSWORD", length = 100)
    private String password;
 
-   @Column(name = "FIRSTNAME", length = 50)
    @NotNull
    @Size(min = 4, max = 50)
+   @Column(name = "FIRSTNAME", length = 50)
    private String firstname;
 
-   @Column(name = "LASTNAME", length = 50)
    @NotNull
    @Size(min = 4, max = 50)
+   @Column(name = "LASTNAME", length = 50)
    private String lastname;
 
-   @Column(name = "EMAIL", length = 50)
    @NotNull
    @Size(min = 4, max = 50)
+   @Column(name = "EMAIL", length = 50)
    private String email;
 
    @JsonIgnore
-   @Column(name = "ACTIVATED")
    @NotNull
+   @Column(name = "ACTIVATED")
    private boolean activated;
 
    @ManyToMany
    @JoinTable(
       name = "USER_AUTHORITY",
-      joinColumns = {@JoinColumn(name = "USER_ID", referencedColumnName = "ID")},
-      inverseJoinColumns = {@JoinColumn(name = "AUTHORITY_NAME", referencedColumnName = "NAME")})
+      joinColumns = { @JoinColumn(name = "USER_ID", referencedColumnName = "ID") },
+      inverseJoinColumns = { @JoinColumn(name = "AUTHORITY_NAME", referencedColumnName = "NAME") })
    @BatchSize(size = 20)
    private Set<Authority> authorities = new HashSet<>();
 
@@ -126,10 +138,14 @@ public class User {
 
    @Override
    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o) {
+         return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+         return false;
+      }
       User user = (User) o;
-      return id.equals(user.id);
+      return Objects.equals(id, user.id);
    }
 
    @Override

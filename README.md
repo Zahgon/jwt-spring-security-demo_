@@ -1,25 +1,28 @@
-# JWT Spring Security Demo
+# JWT Quarkus Security Demo
 
-![Screenshot from running application](etc/screenshot-jwt-spring-security-demo.png?raw=true "Screenshot JWT Spring Security Demo")
+![Screenshot from running application](etc/screenshot-jwt-spring-security-demo.png?raw=true "Screenshot JWT Quarkus Security Demo")
 
 ## About
-This is a demo for using **[JWT (JSON Web Token)](https://jwt.io)** with **[Spring Security](https://spring.io/projects/spring-security)** and
-**[Spring Boot](https://spring.io/projects/spring-boot)**. I completely rewrote my first version. Now this solution is based on the code base
-from the [JHipster Project](https://www.jhipster.tech/). I tried to extract the minimal configuration and classes that are needed 
-for JWT-Authentication and did some changes.
+This is a demo for using **[JWT (JSON Web Token)](https://jwt.io)** with **[Quarkus](https://quarkus.io)**.
 
-[![Build Status](https://travis-ci.org/szerhusenBC/jwt-spring-security-demo.svg?branch=master)](https://travis-ci.org/szerhusenBC/jwt-spring-security-demo)
+It is a framework migration of the original `jwt-spring-security-demo`: the HTTP contract,
+the domain model, the database schema, the seed data and the JavaScript client are unchanged.
+Only the framework layer was translated — Spring MVC became JAX-RS (RESTEasy), Spring Data JPA
+became Hibernate ORM with Panache, the Spring Security filter chain became a JAX-RS
+`@PreMatching` `ContainerRequestFilter`, and Spring's bean container became CDI (ArC).
 
 ## Requirements
-This demo is build with with Maven 3.6.x and Java 11.
+This demo is built with Maven 3.9.x and Java 17+ (the build and the test suite run on Java 21).
 
 ## Usage
-Just start the application with the Spring Boot maven plugin (`mvn spring-boot:run`). The application is
-running at [http://localhost:8080](http://localhost:8080).
+Start the application in development mode with `mvn quarkus:dev`, or package and run it:
 
-You can use the **H2-Console** for exploring the database under [http://localhost:8080/h2-console](http://localhost:8080/h2-console):
+```
+mvn package
+java -jar target/quarkus-app/quarkus-run.jar
+```
 
-![Screenshot from h2-console login](etc/screenshot-h2-console-login.png?raw=true "Screenshot H2-Console login")
+The application is running at [http://localhost:8080](http://localhost:8080).
 
 ## Backend
 There are three user accounts present to demonstrate the different levels of access to the endpoints in
@@ -34,59 +37,50 @@ There are four endpoints that are reasonable for the demo:
 ```
 /api/authenticate - authentication endpoint with unrestricted access
 /api/user - returns detail information for an authenticated user (a valid JWT token must be present in the request header)
-/api/persons - an example endpoint that is restricted to authorized users with the authority 'ROLE_USER' (a valid JWT token must be present in the request header)
+/api/person - an example endpoint that is restricted to authorized users with the authority 'ROLE_USER' (a valid JWT token must be present in the request header)
 /api/hiddenmessage - an example endpoint that is restricted to authorized users with the authority 'ROLE_ADMIN' (a valid JWT token must be present in the request header)
 ```
 
+A request without a token is answered with `401`, a request with a valid token but the wrong
+authority with `403` — the same behaviour the Spring version had.
+
 ## Frontend
-I've written a small Javascript client and put some comments in the code that hopefully makes this demo understandable.
-You can find it at [/src/main/resources/static/js/client.js](/src/main/resources/static/js/client.js).
+The small Javascript client from the original demo is unchanged. Quarkus serves static resources from
+`src/main/resources/META-INF/resources`, so the client now lives at
+[/src/main/resources/META-INF/resources/js/client.js](/src/main/resources/META-INF/resources/js/client.js).
 
 ### Generating password hashes for new users
 
-I'm using [bcrypt](https://en.wikipedia.org/wiki/Bcrypt) to encode passwords. Your can generate your hashes with this simple 
-tool: [Bcrypt Generator](https://www.bcrypt-generator.com)
+Passwords are hashed with [bcrypt](https://en.wikipedia.org/wiki/Bcrypt). You can generate your hashes with this simple
+tool: [Bcrypt Generator](https://www.bcrypt-generator.com). The hashes from the original demo still work — the
+migration kept the same encoder and the same cost factor.
 
 ### Using another database
 
-Actually this demo is using an embedded H2 database that is automatically configured by Spring Boot. If you want to connect 
-to another database you have to specify the connection in the *application.yml* in the resource directory. Here is an example for a MySQL DB:
+This demo uses an embedded H2 database. To connect to another database, change the datasource keys in
+*application.properties* in the resource directory. Here is an example for a MySQL DB:
 
 ```
-spring:
-  jpa:
-    hibernate:
-      # possible values: validate | update | create | create-drop
-      ddl-auto: create-drop
-  datasource:
-    url: jdbc:mysql://localhost/myDatabase
-    username: myUser
-    password: myPassword
-    driver-class-name: com.mysql.jdbc.Driver
+quarkus.datasource.db-kind=mysql
+quarkus.datasource.username=myUser
+quarkus.datasource.password=myPassword
+quarkus.datasource.jdbc.url=jdbc:mysql://localhost/myDatabase
+# possible values: none | create | drop-and-create | drop | update | validate
+quarkus.hibernate-orm.database.generation=drop-and-create
 ```
 
 *Hint: For other databases like MySQL sequences don't work for ID generation. So you have to change the GenerationType in the entity beans to 'AUTO' or 'IDENTITY'.*
 
-You can find a reference of all application properties [here](http://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html).
-
-### Using Flyway
-
-https://github.com/szerhusenBC/jwt-spring-security-demo/issues/81
+You can find a reference of all application properties [here](https://quarkus.io/guides/all-config).
 
 ## Docker
-This project has a docker image. You can find it at [https://hub.docker.com/r/hubae/jwt-spring-security-demo/](https://hub.docker.com/r/hubae/jwt-spring-security-demo/).
+Package the application first, then build the JVM image:
 
-## Questions
-If you have project related questions please take a look at the [past questions](https://github.com/szerhusenBC/jwt-spring-security-demo/issues?utf8=%E2%9C%93&q=is%3Aissue%20is%3Aopen%2Cclosed%20label%3Aquestion%20) or create a new ticket with your question.
-
-*If you have questions that are not directly related to this project (e.g. common questions to the Spring Framework or Spring Security etc.) please search the web or look at [Stackoverflow](http://www.stackoverflow.com).*
-
-Sorry for that but I'm very busy right now and don't have much time.
-
-## Interesting projects
-
-* [spring-security-pac4j](https://github.com/pac4j/spring-security-pac4j) a Spring Boot integration for Pac4j (a Java security engine that covers JWT beside others)
-* For more complex microservice environments take a look here: [Using JWT with Spring Security OAuth](http://www.baeldung.com/spring-security-oauth-jwt)
+```
+mvn package
+docker build -f src/main/docker/Dockerfile -t hubae/jwt-spring-security-demo .
+docker run -i --rm -p 8080:8080 hubae/jwt-spring-security-demo
+```
 
 ## Author
 
@@ -98,7 +92,3 @@ Sorry for that but I'm very busy right now and don't have much time.
 ## Copyright and license
 
 The code is released under the [MIT license](LICENSE?raw=true).
-
----------------------------------------
-
-Please feel free to send me some feedback or questions!

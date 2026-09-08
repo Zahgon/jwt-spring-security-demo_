@@ -1,12 +1,24 @@
 package org.zerhusen;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import io.quarkus.runtime.Quarkus;
+import io.quarkus.runtime.QuarkusApplication;
+import io.quarkus.runtime.annotations.QuarkusMain;
 
-@SpringBootApplication
-public class JwtDemoApplication {
+/**
+ * Entry point of the demo application.
+ *
+ * @author Stephan Zerhusen
+ */
+@QuarkusMain
+public class JwtDemoApplication implements QuarkusApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(JwtDemoApplication.class, args);
-    }
+   @Override
+   public int run(String... args) {
+      Quarkus.waitForExit();
+      return 0;
+   }
+
+   public static void main(String[] args) {
+      Quarkus.run(JwtDemoApplication.class, args);
+   }
 }

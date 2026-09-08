@@ -1,17 +1,30 @@
 package org.zerhusen.security.repository;
 
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.zerhusen.security.model.User;
-
 import java.util.Optional;
 
-public interface UserRepository extends JpaRepository<User, Long> {
+import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.zerhusen.security.model.User;
 
-   @EntityGraph(attributePaths = "authorities")
-   Optional<User> findOneWithAuthoritiesByUsername(String username);
+/**
+ * Panache repository for the {@link User} entity.
+ *
+ * <p>Both finders join the authorities eagerly, which is what the entity graph
+ * on the JPA repository used to do.</p>
+ */
+@ApplicationScoped
+public class UserRepository implements PanacheRepositoryBase<User, Long> {
 
-   @EntityGraph(attributePaths = "authorities")
-   Optional<User> findOneWithAuthoritiesByEmailIgnoreCase(String email);
+   private static final String WITH_AUTHORITIES =
+      "select distinct u from User u left join fetch u.authorities";
 
+   public Optional<User> findOneWithAuthoritiesByUsername(String username) {
+      return find(WITH_AUTHORITIES + " where u.username = ?1", username)
+         .firstResultOptional();
+   }
+
+   public Optional<User> findOneWithAuthoritiesByEmailIgnoreCase(String email) {
+      return find(WITH_AUTHORITIES + " where lower(u.email) = lower(?1)", email)
+         .firstResultOptional();
+   }
 }

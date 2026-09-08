@@ -1,24 +1,28 @@
 package org.zerhusen.rest;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
-@RestController
-@RequestMapping("/api")
+@Path("/api")
+@ApplicationScoped
 public class AdminProtectedRestController {
 
-   @GetMapping("/hiddenmessage")
-   public ResponseEntity<HiddenMessage> getAdminProtectedGreeting() {
-      return ResponseEntity.ok(new HiddenMessage("this is a hidden message!"));
+   @GET
+   @Path("/hiddenmessage")
+   @Produces(MediaType.APPLICATION_JSON)
+   public Response getHiddenMessage() {
+      return Response.ok(new HiddenMessage("this is a hidden message!")).build();
    }
 
-   private static class HiddenMessage {
+   public static class HiddenMessage {
 
       private final String message;
 
-      private HiddenMessage(String message) {
+      HiddenMessage(String message) {
          this.message = message;
       }
 
@@ -26,5 +30,4 @@ public class AdminProtectedRestController {
          return message;
       }
    }
-
 }

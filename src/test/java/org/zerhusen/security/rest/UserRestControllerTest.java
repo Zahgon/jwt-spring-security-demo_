@@ -1,49 +1,40 @@
 package org.zerhusen.security.rest;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.http.MediaType;
-import org.springframework.security.core.context.SecurityContextHolder;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import org.junit.jupiter.api.Test;
 import org.zerhusen.util.AbstractRestControllerTest;
+import org.zerhusen.util.LogInUtils;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.zerhusen.util.LogInUtils.getTokenForLogin;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 
-public class UserRestControllerTest extends AbstractRestControllerTest {
+@QuarkusTest
+class UserRestControllerTest extends AbstractRestControllerTest {
 
-   @Before
-   public void setUp() {
-      SecurityContextHolder.clearContext();
+   @Test
+   void getActualUserForUserWithToken() {
+      String token = LogInUtils.getTokenForLogin("user", "password");
+
+      RestAssured.given()
+         .header("Authorization", "Bearer " + token)
+         .when()
+         .get("/api/user")
+         .then()
+         .statusCode(200)
+         .body("username", equalTo("user"))
+         .body("firstname", equalTo("user"))
+         .body("lastname", equalTo("user"))
+         .body("email", equalTo("enabled@user.com"))
+         .body("authorities.name", hasItem("ROLE_USER"));
    }
 
    @Test
-   public void getActualUserForUserWithToken() throws Exception {
-      final String token = getTokenForLogin("user", "password", getMockMvc());
-
-      getMockMvc().perform(get("/api/user")
-         .contentType(MediaType.APPLICATION_JSON)
-         .header("Authorization", "Bearer " + token))
-         .andExpect(status().isOk())
-         .andExpect(content().json(
-            "{\n" +
-               "  \"username\" : \"user\",\n" +
-               "  \"firstname\" : \"user\",\n" +
-               "  \"lastname\" : \"user\",\n" +
-               "  \"email\" : \"enabled@user.com\",\n" +
-               "  \"authorities\" : [ {\n" +
-               "    \"name\" : \"ROLE_USER\"\n" +
-               "  } ]\n" +
-               "}"
-         ));
+   void getActualUserForUserWithoutToken() {
+      RestAssured.given()
+         .when()
+         .get("/api/user")
+         .then()
+         .statusCode(401);
    }
-
-   @Test
-   public void getActualUserForUserWithoutToken() throws Exception {
-      getMockMvc().perform(get("/api/user")
-         .contentType(MediaType.APPLICATION_JSON))
-         .andExpect(status().isUnauthorized());
-   }
-
 }

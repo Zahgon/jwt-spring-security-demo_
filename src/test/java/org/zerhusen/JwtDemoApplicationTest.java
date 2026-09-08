@@ -1,16 +1,30 @@
 package org.zerhusen;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.Test;
+import org.zerhusen.security.jwt.TokenProvider;
+import org.zerhusen.security.repository.UserRepository;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest
-public class JwtDemoApplicationTest {
+import static org.assertj.core.api.Assertions.assertThat;
 
-    @Test
-    public void contextLoads() {
-        // just test if the application context loads
-    }
+/**
+ * Counterpart of the Spring {@code contextLoads} smoke test: it proves the container came
+ * up and that the beans the application is built from were actually produced.
+ */
+@QuarkusTest
+class JwtDemoApplicationTest {
+
+   @Inject
+   TokenProvider tokenProvider;
+
+   @Inject
+   UserRepository userRepository;
+
+   @Test
+   void contextLoads() {
+      // just test if the application context loads
+      assertThat(tokenProvider).isNotNull();
+      assertThat(userRepository).isNotNull();
+   }
 }
